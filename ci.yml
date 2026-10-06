@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore src/Api/Api.csproj
+      - name: Build
+        run: dotnet build src/Api/Api.csproj --no-restore -c Release
+      - name: Test
+        run: dotnet test tests/Api.Tests/Api.Tests.csproj -c Release --logger "console;verbosity=normal"
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu -r src/Worker/requirements.txt
+      - name: Lint
+        run: python -m py_compile src/Worker/*.py
+      - name: Test
+        run: pytest src/Worker/tests/ -v
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate compose
+        run: docker compose config
+      - name: Build API image
+        run: docker compose build api
